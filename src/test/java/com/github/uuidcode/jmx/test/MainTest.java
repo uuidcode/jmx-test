@@ -3,8 +3,8 @@ package com.github.uuidcode.jmx.test;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import javax.management.MBeanInfo;
 import javax.management.MBeanServerConnection;
@@ -18,11 +18,12 @@ import org.junit.Test;
 import org.slf4j.Logger;
 
 import com.github.uuidcode.util.CoreUtil;
-import com.sun.tools.attach.AttachNotSupportedException;
 import com.sun.tools.attach.VirtualMachine;
 import com.sun.tools.attach.VirtualMachineDescriptor;
 import com.sun.tools.attach.spi.AttachProvider;
 
+import static com.github.uuidcode.util.CoreUtil.unchecked;
+import static java.util.stream.Collectors.toMap;
 import static org.slf4j.LoggerFactory.getLogger;
 
 public class MainTest {
@@ -71,20 +72,18 @@ public class MainTest {
         JMXServiceURL url = this.getJMXServiceURL(virtualMachine);
         JMXConnector jmxConnector = JMXConnectorFactory.connect(url);
         MBeanServerConnection connection = jmxConnector.getMBeanServerConnection();
-        this.printJMXMeta(connection);
+        this.printMBeanInfo(connection);
 
         return connection;
     }
 
-    private void printJMXMeta(MBeanServerConnection connection) throws IOException {
+    private void printMBeanInfo(MBeanServerConnection connection) throws Exception {
         Set<ObjectName> objectNameSet = connection.queryNames(null, null);
-
-        List<JMXMeta> jmxMetaList = objectNameSet.stream()
-            .map(JMXMeta::of)
-            .collect(Collectors.toList());
+        Map<String, MBeanInfo> mBeanInfoMap = objectNameSet.stream()
+            .collect(toMap(ObjectName::getCanonicalName, unchecked(connection::getMBeanInfo)));
 
         if (logger.isDebugEnabled()) {
-            logger.debug(">>> local jmxMetaList: {}", CoreUtil.toJson(jmxMetaList));
+            logger.debug(">>> local mBeanInfoMap: {}", CoreUtil.toJson(mBeanInfoMap));
         }
     }
 
@@ -99,7 +98,7 @@ public class MainTest {
         return new JMXServiceURL(localConnectorAddress);
     }
 
-    private VirtualMachine getVirtualMachine() throws AttachNotSupportedException, IOException {
+    private VirtualMachine getVirtualMachine() throws Exception {
         AttachProvider attachProvider = AttachProvider.providers().get(0);
 
         List<VirtualMachineDescriptor> virtualMachineDescriptorList = attachProvider.listVirtualMachines();
