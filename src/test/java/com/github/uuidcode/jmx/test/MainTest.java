@@ -75,7 +75,8 @@ public class MainTest {
             File.separator + "lib" + File.separator + "management-agent.jar";
         virtualMachine.loadAgent(agent);
 
-        String localConnectorAddress = virtualMachine.getAgentProperties().getProperty("com.sun.management.jmxremote.localConnectorAddress");
+        String localConnectorAddress = virtualMachine.getAgentProperties()
+            .getProperty("com.sun.management.jmxremote.localConnectorAddress");
 
         JMXServiceURL url = new JMXServiceURL(localConnectorAddress);
         JMXConnector jmxConnector = JMXConnectorFactory.connect(url);
