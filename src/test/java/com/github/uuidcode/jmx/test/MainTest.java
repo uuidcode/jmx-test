@@ -1,7 +1,6 @@
 package com.github.uuidcode.jmx.test;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -22,6 +21,7 @@ import com.sun.tools.attach.VirtualMachine;
 import com.sun.tools.attach.VirtualMachineDescriptor;
 import com.sun.tools.attach.spi.AttachProvider;
 
+import static com.github.uuidcode.util.CoreUtil.toJson;
 import static com.github.uuidcode.util.CoreUtil.unchecked;
 import static java.util.stream.Collectors.toMap;
 import static org.slf4j.LoggerFactory.getLogger;
@@ -40,7 +40,7 @@ public class MainTest {
             MBeanInfo mBeanInfo = mBeanServerConnection.getMBeanInfo(objectName);
 
             if (logger.isDebugEnabled()) {
-                logger.debug(">>> test mBeanInfo: {}", CoreUtil.toJson(mBeanInfo));
+                logger.debug(">>> test mBeanInfo: {}", toJson(mBeanInfo));
             }
         }
     }
@@ -48,10 +48,10 @@ public class MainTest {
     @Test
     public void listVirtualMachines() {
         AttachProvider attachProvider = AttachProvider.providers().get(0);
-        List<VirtualMachineDescriptor> virtualMachineDescriptorList = attachProvider.listVirtualMachines();
+        List<VirtualMachineDescriptor> list = attachProvider.listVirtualMachines();
 
         if (logger.isDebugEnabled()) {
-            logger.debug(">>> local virtualMachineDescriptorList: {}", CoreUtil.toJson(virtualMachineDescriptorList));
+            logger.debug(">>> local list: {}", toJson(list));
         }
     }
 
@@ -63,12 +63,12 @@ public class MainTest {
         Long used = (Long) compositeData.get("used");
 
         if (logger.isDebugEnabled()) {
-            logger.debug(">>> local used: {}", CoreUtil.toJson(used));
+            logger.debug(">>> local used: {}", toJson(used));
         }
     }
 
     private MBeanServerConnection getConnection() throws Exception {
-        VirtualMachine virtualMachine = this.getVirtualMachine();
+        VirtualMachine virtualMachine = this.getVirtualMachine(Main.class);
         JMXServiceURL url = this.getJMXServiceURL(virtualMachine);
         JMXConnector jmxConnector = JMXConnectorFactory.connect(url);
         MBeanServerConnection connection = jmxConnector.getMBeanServerConnection();
@@ -83,7 +83,7 @@ public class MainTest {
             .collect(toMap(ObjectName::getCanonicalName, unchecked(connection::getMBeanInfo)));
 
         if (logger.isDebugEnabled()) {
-            logger.debug(">>> local mBeanInfoMap: {}", CoreUtil.toJson(mBeanInfoMap));
+            logger.debug(">>> local mBeanInfoMap: {}", toJson(mBeanInfoMap));
         }
     }
 
@@ -92,27 +92,31 @@ public class MainTest {
             File.separator + "lib" + File.separator + "management-agent.jar";
         virtualMachine.loadAgent(agent);
 
-        String localConnectorAddress = virtualMachine.getAgentProperties()
+        String address = virtualMachine.getAgentProperties()
             .getProperty("com.sun.management.jmxremote.localConnectorAddress");
 
-        return new JMXServiceURL(localConnectorAddress);
-    }
-
-    private VirtualMachine getVirtualMachine() throws Exception {
-        AttachProvider attachProvider = AttachProvider.providers().get(0);
-
-        List<VirtualMachineDescriptor> virtualMachineDescriptorList = attachProvider.listVirtualMachines();
-
         if (logger.isDebugEnabled()) {
-            logger.debug(">>> local virtualMachineDescriptorList: {}", CoreUtil.toJson(virtualMachineDescriptorList));
+            logger.debug(">>> getJMXServiceURL address: {}", toJson(address));
         }
 
-        VirtualMachineDescriptor virtualMachineDescriptor = virtualMachineDescriptorList.stream()
-            .filter(CoreUtil.equals(VirtualMachineDescriptor::displayName, Main.class.getName()))
+        return new JMXServiceURL(address);
+    }
+
+    private VirtualMachine getVirtualMachine(Class clazz) throws Exception {
+        AttachProvider attachProvider = AttachProvider.providers().get(0);
+
+        List<VirtualMachineDescriptor> list = attachProvider.listVirtualMachines();
+
+        if (logger.isDebugEnabled()) {
+            logger.debug(">>> local list: {}", toJson(list));
+        }
+
+        VirtualMachineDescriptor descriptor = list.stream()
+            .filter(CoreUtil.equals(VirtualMachineDescriptor::displayName, clazz.getName()))
             .findFirst()
             .orElseThrow(() -> new RuntimeException("not exist"));
 
 
-        return attachProvider.attachVirtualMachine(virtualMachineDescriptor);
+        return attachProvider.attachVirtualMachine(descriptor);
     }
 }
